@@ -1,0 +1,95 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Tarea 3 Vuelos</title>
+    <style>
+       #map {
+        height: 400px;
+        width: 100%;
+       }
+    </style>
+  </head>
+  <body>
+    <center>
+      <h3>Tarea 3 - Vuelos</h3>
+    </center>
+    <div id="map"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.1/socket.io.js"></script>
+    <script>
+      function initMap() {
+        var uluru = {lat: -33.472, lng: -70.647};
+        var map = new google.maps.Map(document.getElementById('map'), {
+          zoom: 6,
+          center: uluru
+        });
+        var vuelos = {};
+        const socket = io('wss://integracion-tarea-3.herokuapp.com', {'path': '/flights'});
+        const socket2 = io('wss://integracion-tarea-3.herokuapp.com', {'path': '/flights'});
+        const socket3 = io('wss://integracion-tarea-3.herokuapp.com', {'path': '/flights'});
+        socket2.emit('AIRPORTS');
+        socket3.emit('FLIGHTS');
+        socket.on('POSITION', function(msg){
+          if (!(msg['code'] in vuelos)){
+            vuelos[msg['code']] = [];
+            vuelos[msg['code']].push({lat: msg['position'][0], lng: msg['position'][1]});
+          } else {
+            vuelos[msg['code']].push({lat: msg['position'][0], lng: msg['position'][1]});
+          }
+          var flightPath = new google.maps.Polyline({
+            path: vuelos[msg['code']],
+            geodesic: true,
+            strokeColor: '#FFFF00',
+            strokeOpacity: 1.0,
+            strokeWeight: 8
+          });
+          flightPath.setMap(map);
+        });
+        socket2.on('AIRPORTS', function(msg){
+          for (aero in msg) {
+            console.log(msg[aero]);
+            var init = "INFORMACIÓN DEL AEROPUERTO <br />Nombre: ";
+            var latitud = msg[aero]['airport_position'][0];
+            var longitud = msg[aero]['airport_position'][1];
+            var lati = latitud.toString();
+            var longi = longitud.toString();
+            var info = init.concat(msg[aero]['name'], "<br />", 'Código: ', msg[aero]['airport_code'], "<br />", "Ubicación: latitud ", lati, ", longitud: " , longi ,"<br />", 'País: ', msg[aero]['country'], "<br />", 'Ciudad: ', msg[aero]['city'], "<br />", 'Código País: ', msg[aero]['country_code'], "<br />", '.');
+            console.log("INFO:\n")
+            console.log(info);
+            var image = 'https://developers.google.com/maps/documentation/javascript/examples/full/images/beachflag.png';
+            var beachMarker = new google.maps.Marker({
+              position: {lat: msg[aero]['airport_position'][0], lng: msg[aero]['airport_position'][1]},
+              map: map,
+              icon: image
+            });
+            attachMessage(beachMarker, info);
+          }
+        });
+        socket3.on('FLIGHTS', function(msg){
+          for (vue in msg) {
+            console.log(msg[vue]);
+            var flightPath = new google.maps.Polyline({
+              path: [{lat: msg[vue]['destination']['airport_position'][0], lng: msg[vue]['destination']['airport_position'][1]}, {lat: msg[vue]['origin']['airport_position'][0], lng: msg[vue]['origin']['airport_position'][1]}],
+              geodesic: true,
+              strokeColor: '#81F781',
+              strokeOpacity: 1.0,
+              strokeWeight: 6
+            });
+            flightPath.setMap(map);
+          }
+        });
+      }
+      function attachMessage(marker, Message) {
+        var infowindow = new google.maps.InfoWindow({
+          content: Message
+        });
+
+        marker.addListener('click', function() {
+          infowindow.open(marker.get('map'), marker);
+        });
+      }
+    </script>
+    <script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDBeKYamP_1GqEkuCMpwq-qwM7vg-hM49I&callback=initMap">
+    </script>
+  </body>
+</html>
